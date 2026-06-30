@@ -570,6 +570,7 @@ function Landing({
   const [attachedFile, setAttachedFile] = useState<File | null>(null);
   const [listening, setListening] = useState(false);
   const [chatDone, setChatDone] = useState(false);
+  const [priceShown, setPriceShown] = useState(false);
   const recognitionRef = useRef<{ stop: () => void } | null>(null);
   const formRef = useRef<HTMLDivElement>(null);
   const consentRef = useRef<HTMLDivElement>(null);
@@ -788,10 +789,32 @@ function Landing({
 
     if (reply) {
       addMsg("agent", reply);
+      if (/€|tarif indicatif|devis/i.test(reply)) setPriceShown(true);
     } else if (text) {
       respond(text);
     } else {
       addMsg("agent", "Devis reçu. Notre équipe va l'analyser et revenir vers vous.");
+    }
+
+    // Quand le client confirme après annonce du prix par n8n
+    if (priceShown && !chatDone && /^(oui|ok|d'accord|yes|volontiers|parfait|bien sûr|valide|j'accepte)/i.test(text.trim())) {
+      const pax = parseInt(tripInfo.current.passagers ?? "", 10) || 30;
+      const { tarifMin, tarifMax } = estimateTarif(pax);
+      fetch("/api/chat/confirm", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: userEmail,
+          prenom: userFirstName,
+          depart: tripInfo.current.depart,
+          destination: tripInfo.current.destination,
+          passagers: pax,
+          date: tripInfo.current.date,
+          tarifMin,
+          tarifMax,
+        }),
+      });
+      setChatDone(true);
     }
   };
 
