@@ -1,6 +1,26 @@
 # Project-NeoTravel
+# Plateforme de devis de transport (autocar) — projet Agent IA Epitech
 
-Plateforme de devis de transport (autocar) — projet Agent IA Epitech.
+Plateforme d'automatisation du cycle commercial pour une PME de transport en groupe (intermédiation avec autocaristes) :
+
+captation lead → qualification → devis automatique → relances → suivi pipeline → dashboard.
+
+**Principe directeur du projet :** l'IA décide et orchestre, les outils (code) exécutent. Le prix ne doit jamais transiter par le LLM — le calcul est toujours fait par le moteur de tarification (`backend/`), jamais par l'agent IA.
+
+## Équipe
+
+| Membre | Rôle |
+|---|---|
+| Mamoudou | Responsable technique et développeur |
+| Joe & Brigitte | Agent IA et prompt |
+| Brigitte | Product & UX Design |
+| Mélina | Analyste Métier |
+| Maxence | Automatisation et Relances |
+
+## URL
+```
+URL du site : https://project-neo-travel.vercel.app
+```
 
 ## Architecture
 
@@ -8,8 +28,9 @@ Plateforme de devis de transport (autocar) — projet Agent IA Epitech.
 .
 ├── frontend/    # Application Next.js 16 (App Router) + API routes + NextAuth (Airtable)
 ├── backend/     # API FastAPI de tarification (pricing engine)
-├── workflows/   # Workflows n8n (sauvegarde demande, génération devis)
+├── workflows/   # Workflows n8n (sauvegarde demande, génération devis, relances)
 └── docs/        # Documents de référence (devis exemple)
+└── gitignore/   # Fichiers d'extension à ignorer
 ```
 
 ## Frontend (`frontend/`)
@@ -30,9 +51,31 @@ cd backend
 python -m venv .venv && source .venv/Scripts/activate   # (Windows: source .venv/Scripts/activate)
 pip install -r requirements.txt
 uvicorn api:app --reload --port 8000                     # http://localhost:8000/docs
-pytest                                                   # tests du moteur de tarification
+pytest                                                    # tests du moteur de tarification
 ```
 
 ## Workflows (`workflows/`)
 
-Fichiers JSON à importer dans n8n.
+Fichiers JSON à importer dans n8n (**Workflows → Import from File**). Reconnecter les credentials Airtable et Resend après import (non inclus dans l'export pour des raisons de sécurité).
+
+### Cycle de relances automatiques
+
+Une fois un devis envoyé, 3 workflows gèrent les relances et la mise à jour des statuts dans Airtable, en autonomie :
+
+| Fichier | Rôle |
+|---|---|
+| `Workflow-relance1.json` | Envoie la 1ère relance email, statut → `relancé_1` |
+| `Workflow-relance2.json` | Envoie la 2e (dernière) relance email, statut → `relancé_2` |
+| `Workflow-cloture.json` | Clôture automatique sans email, statut → `clôturé` |
+
+Chaque workflow suit la même logique : `Schedule Trigger → Search Records (Airtable) → IF (condition de délai) → [Send Email (Resend)] → Update Record (Airtable)`.
+
+**Modèle de statuts :**
+```
+nouveau → demande_incomplète → demande_qualifiée → devis_envoyé
+→ relancé_1 → relancé_2 → accepté / refusé / cas_complexe_transmis / clôturé
+```
+
+## Docs (`docs/`)
+
+Documents de référence (exemples de devis, etc.).
