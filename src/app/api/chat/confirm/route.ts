@@ -11,36 +11,42 @@ async function airtableGet(table: string, formula: string) {
 }
 
 async function airtableCreate(table: string, fields: Record<string, unknown>) {
-  await fetch(`https://api.airtable.com/v0/${BASE}/${encodeURIComponent(table)}`, {
+  const res = await fetch(`https://api.airtable.com/v0/${BASE}/${encodeURIComponent(table)}`, {
     method: "POST",
     headers: { Authorization: `Bearer ${TOKEN}`, "Content-Type": "application/json" },
     body: JSON.stringify({ fields }),
   });
+  return res.json();
 }
 
 export async function POST(req: NextRequest) {
   const { email, prenom, depart, destination, passagers, date, tarifMin, tarifMax } = await req.json();
   if (!email) return NextResponse.json({ error: "Email requis." }, { status: 400 });
 
-  const fmt = (n: number) => n.toLocaleString("fr-FR");
+  const fmt = (n: number) => n.toLocaleString("fr-FR", { minimumFractionDigits: 2 }) + " €";
 
-  // Trouve le record client pour créer le lien Airtable
-  const clientRecord = await airtableGet("Gestion des Clients", `{Email}='${email}'`);
+  // Trouve ou crée le client dans Airtable
+  const clientRecord =
+    (await airtableGet("Clients", `{Email}='${email}'`)) ??
+    (await airtableCreate("Clients", { Email: email }));
 
-  // Crée le devis dans Airtable
+  const clientId = clientRecord?.id ?? null;
+
+  // Crée le devis (champs réels de la table Airtable)
   const ref = `NT-${new Date().getFullYear()}-${String(Date.now()).slice(-4)}`;
+  const ht = Math.round((tarifMin + tarifMax) / 2 / 1.1);
+  const ttc = Math.round((tarifMin + tarifMax) / 2);
+
   await airtableCreate("Devis", {
-    Ref_Devis: ref,
-    Depart: depart ?? "—",
-    Destination: destination ?? "—",
-    Date_Depart: date ?? "",
-    Montant_TTC: tarifMax ?? 0,
-    Statut: "devis_calcule",
-    Date_Creation: new Date().toISOString(),
-    ...(clientRecord ? { Clients: [clientRecord.id] } : {}),
+    ID_Devis: ref,
+    Montant_HT: ht,
+    Montant_TTC: ttc,
+    Statut: "En attente",
+    Date_creation: new Date().toISOString().split("T")[0],
+    ...(clientId ? { Clients: [clientId] } : {}),
   });
 
-  // Envoie l'email de confirmation
+  // Email de confirmation via Resend
   await fetch("https://api.resend.com/emails", {
     method: "POST",
     headers: {
@@ -58,9 +64,9 @@ export async function POST(req: NextRequest) {
           <li><strong>Trajet :</strong> ${depart ?? "—"} → ${destination ?? "—"}</li>
           <li><strong>Passagers :</strong> ${passagers ?? "—"}</li>
           ${date ? `<li><strong>Date :</strong> ${date}</li>` : ""}
-          <li><strong>Tarif indicatif :</strong> ${fmt(tarifMin ?? 0)} € – ${fmt(tarifMax ?? 0)} € TTC</li>
+          <li><strong>Tarif indicatif :</strong> ${fmt(tarifMin ?? 0)} – ${fmt(tarifMax ?? 0)} TTC</li>
         </ul>
-        <p>Notre équipe reviendra vers vous sous <strong>24 h ouvrées</strong> avec un devis définitif.</p>
+        <p>Notre équipe reviendra vers vous sous <strong>24 h ouvrées</strong>.</p>
         <p>Référence : <strong>${ref}</strong></p>
         <p>À bientôt,<br/>L'équipe NeoTravel</p>
         <p style="color:#999;font-size:12px">09 80 40 04 84 · contact@neotravel.fr</p>

@@ -19,14 +19,15 @@ type Devis = {
 };
 
 const STATUT_LABEL: Record<string, string> = {
+  "En attente": "En attente",
+  "Envoyé": "Devis envoyé",
+  "Accepté": "Accepté",
+  "Refusé": "Refusé",
+  // legacy
   devis_calcule: "Devis calculé",
   "devis_envoyé": "Devis envoyé",
-  "relancé_1": "En attente",
-  "relancé_2": "En attente",
   "accepté": "Accepté",
   "réfusé": "Refusé",
-  "clôturé": "Clôturé",
-  nouveau: "Nouveau",
 };
 
 const STATUT_COLOR: Record<string, string> = {
