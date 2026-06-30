@@ -1,0 +1,368 @@
+{
+  "name": "My workflow",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 8
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        0,
+        0
+      ],
+      "id": "15cb6897-bedc-43c2-b67c-175e8bf94757",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "operation": "search",
+        "base": {
+          "__rl": true,
+          "value": "appTP3CebBC8FfZYq",
+          "mode": "list",
+          "cachedResultName": "Neo Travel - Pricing",
+          "cachedResultUrl": "https://airtable.com/appTP3CebBC8FfZYq"
+        },
+        "table": {
+          "__rl": true,
+          "value": "tblBrwboc3qnskSGL",
+          "mode": "list",
+          "cachedResultName": "Relances",
+          "cachedResultUrl": "https://airtable.com/appTP3CebBC8FfZYq/tblBrwboc3qnskSGL"
+        },
+        "filterByFormula": "=OR(\n  {statut} = 'devis_envoyé',\n  {statut} = 'relancé_1',\n  {statut} = 'relancé_2'\n)",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.2,
+      "position": [
+        208,
+        0
+      ],
+      "id": "bb4cbbf3-048b-4b85-bb26-1c8af1e407c5",
+      "name": "Search records",
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "SDCVlbExEUA3X0oP",
+          "name": "Airtable Personal Access Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "7edf18a5-a6da-4d7c-be64-815190552455",
+              "leftValue": "={{ $json.fields.urgent }}",
+              "rightValue": "=true",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            },
+            {
+              "id": "b92489d7-7a64-4970-8873-0e73786386f0",
+              "leftValue": "={{ $json.fields.date_envoi_devis }}",
+              "rightValue": "={{ $now.minus(2, 'days').toISO() }}",
+              "operator": {
+                "type": "dateTime",
+                "operation": "before"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        416,
+        0
+      ],
+      "id": "86de56ed-6627-4d0d-98dc-0d4078ee1643",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "from": "onboarding@resend.dev",
+        "to": "=neotravelproject@gmail.com",
+        "subject": "=Votre devis NeoTravel #{{ $('Search records').item.json.fields.id_devis }} — Relance",
+        "emailFormat": "text",
+        "text": "Bonjour,\n\nNous revenons vers vous concernant votre demande de devis NeoTravel.\n\nSans réponse de votre part, nous nous permettons de vous relancer. \nN'hésitez pas à nous contacter pour toute question.\n\nCordialement,\nL'équipe NeoTravel",
+        "additionalOptions": {}
+      },
+      "type": "n8n-nodes-resend.resend",
+      "typeVersion": 1,
+      "position": [
+        288,
+        -144
+      ],
+      "id": "b129e45b-2b4d-4d9a-a6d7-dee8d00e8db8",
+      "name": "Send a new email",
+      "webhookId": "bb0220a9-93dc-4303-a0f4-f8ae2b7a8876",
+      "credentials": {
+        "resendApi": {
+          "id": "ov5cH3HQgtLLCADF",
+          "name": "Resend account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "base": {
+          "__rl": true,
+          "value": "appTP3CebBC8FfZYq",
+          "mode": "list",
+          "cachedResultName": "Neo Travel - Pricing",
+          "cachedResultUrl": "https://airtable.com/appTP3CebBC8FfZYq"
+        },
+        "table": {
+          "__rl": true,
+          "value": "tblBrwboc3qnskSGL",
+          "mode": "list",
+          "cachedResultName": "Relances",
+          "cachedResultUrl": "https://airtable.com/appTP3CebBC8FfZYq/tblBrwboc3qnskSGL"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Statut": "relancé_1",
+            "date_relance_1": "={{ $now.toISO() }}\n",
+            "id_devis": "={{ $('Search records').item.json.fields.id_devis }}"
+          },
+          "matchingColumns": [
+            "id_devis"
+          ],
+          "schema": [
+            {
+              "id": "id",
+              "displayName": "id",
+              "required": false,
+              "defaultMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": true,
+              "removed": true
+            },
+            {
+              "id": "id_devis",
+              "displayName": "id_devis",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": true,
+              "removed": false
+            },
+            {
+              "id": "date_envoi_devis",
+              "displayName": "date_envoi_devis",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "dateTime",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "date_relance_1",
+              "displayName": "date_relance_1",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "dateTime",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "date_relance_2",
+              "displayName": "date_relance_2",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "dateTime",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "Statut",
+              "displayName": "Statut",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "options",
+              "options": [
+                {
+                  "name": "nouveau",
+                  "value": "nouveau"
+                },
+                {
+                  "name": "demande_incomplète",
+                  "value": "demande_incomplète"
+                },
+                {
+                  "name": "demande_qualifiée",
+                  "value": "demande_qualifiée"
+                },
+                {
+                  "name": "devis_envoyé",
+                  "value": "devis_envoyé"
+                },
+                {
+                  "name": "relancé_1",
+                  "value": "relancé_1"
+                },
+                {
+                  "name": "relancé_2",
+                  "value": "relancé_2"
+                },
+                {
+                  "name": "clôturé",
+                  "value": "clôturé"
+                },
+                {
+                  "name": "accepté",
+                  "value": "accepté"
+                },
+                {
+                  "name": "réfusé",
+                  "value": "réfusé"
+                },
+                {
+                  "name": "cas_complexe_transmis",
+                  "value": "cas_complexe_transmis"
+                }
+              ],
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "urgent",
+              "displayName": "urgent",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "boolean",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "Email_prospect",
+              "displayName": "Email_prospect",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {
+          "typecast": true
+        }
+      },
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.2,
+      "position": [
+        496,
+        -144
+      ],
+      "id": "264dbf8c-48ef-47d6-aed7-32bb3f2ebd55",
+      "name": "Update record",
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "SDCVlbExEUA3X0oP",
+          "name": "Airtable Personal Access Token account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Search records",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Search records": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Send a new email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send a new email": {
+      "main": [
+        [
+          {
+            "node": "Update record",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "312bc053-3b8f-46b2-ae1d-76cdd3bab803",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "b312a3a4ea0cbad0e3daca2964a30a57a852be3bf5dab617205bf89494450a1a"
+  },
+  "nodeGroups": [],
+  "id": "QUIqtf0JJq6mQJd2",
+  "tags": []
+}
