@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { useSession } from "next-auth/react";
+import { useSession, signOut } from "next-auth/react";
 import Link from "next/link";
 import { createDevisRequest } from "@/services";
 import { formatDistance } from "@/utils/distanceCalculator";
@@ -93,6 +93,12 @@ function estimateTarif(passagers: number) {
   const tarifMin = 1200 + pax * 14;
   const tarifMax = Math.round(tarifMin * 1.32);
   return { tarifMin, tarifMax };
+}
+
+const ABROAD_RE = /\b(espagne|spain|madrid|barcelone|barcelona|italie|italy|rome|roma|milan|milan|allemagne|germany|berlin|munich|royaume.uni|uk|london|londres|belgique|belgium|bruxelles|brussels|suisse|switzerland|genève|zurich|berne|portugal|lisbonne|lisbon|porto|pays.bas|netherlands|amsterdam|luxembourg|autriche|austria|vienne|vienna|pologne|poland|varsovie|budapest|hongrie|maroc|morocco|casablanca|rabat|algérie|algeria|alger|tunisie|tunisia|tunis|sénégal|dakar|côte.d.ivoire|abidjan|cameroun|antilles|martinique|guadeloupe|réunion|guyane|canada|états.unis|usa|new.york|los.angeles|dubai|émirats|qatar|doha|chine|china|japon|japan|tokyo|inde|india|Mumbai|international|étranger|abroad|europe\b(?!enne))\b/i;
+
+function isAbroad(info: TripInfo): boolean {
+  return ABROAD_RE.test(info.destination ?? "") || ABROAD_RE.test(info.depart ?? "");
 }
 
 function parseTripQuery(query: string): TripInfo {
@@ -584,18 +590,29 @@ function Landing({
     if (activeDemandeId.current) appendMessage(activeDemandeId.current, msg);
   };
 
-  const callAgent = async (message: string): Promise<string | null> => {
+  const callAgent = async (message: string, file?: File): Promise<{ reply: string | null; slots?: Record<string, string> }> => {
     try {
-      const res = await fetch("/api/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message, sessionId, honeypot, formTs }),
-      });
+      let res: Response;
+      if (file) {
+        const fd = new FormData();
+        fd.append("file", file);
+        fd.append("message", message);
+        fd.append("sessionId", sessionId);
+        fd.append("honeypot", honeypot ?? "");
+        fd.append("formTs", String(formTs));
+        res = await fetch("/api/chat/upload", { method: "POST", body: fd });
+      } else {
+        res = await fetch("/api/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ message, sessionId, honeypot, formTs }),
+        });
+      }
       const data = await res.json();
-      if (res.ok && data.reply && String(data.reply).trim()) return String(data.reply);
-      return null;
+      const reply = res.ok && data.reply && String(data.reply).trim() ? String(data.reply) : null;
+      return { reply, slots: data.slots ?? undefined };
     } catch {
-      return null;
+      return { reply: null };
     }
   };
 
@@ -658,7 +675,9 @@ function Landing({
     const hasTrip = parsed.depart && parsed.destination;
     const hasPax = !!parsed.passagers;
     let greeting: string;
-    if (hasTrip && hasPax) {
+    if (hasTrip && isAbroad(parsed)) {
+      greeting = `Bonjour ${userFirstName} ! Pour les trajets hors de France, je vous mets en relation avec un conseiller Neotravel qui pourra vous accompagner. Vous pouvez le joindre directement ou nous laisser vos coordonnées pour un rappel.`;
+    } else if (hasTrip && hasPax) {
       greeting = `Bonjour ${userFirstName} ! J'ai bien noté votre trajet ${parsed.depart} → ${parsed.destination} pour ${parsed.passagers} passagers. Souhaitez-vous un aller simple ou un aller-retour ?`;
     } else if (hasTrip) {
       greeting = `Bonjour ${userFirstName} ! J'ai bien noté votre trajet ${parsed.depart} → ${parsed.destination}. Combien de passagers serez-vous ?`;
@@ -674,18 +693,28 @@ function Landing({
   const respond = (userText: string) => {
     const t = userText.toLowerCase();
     let reply: string;
+    if (isAbroad(tripInfo.current) || ABROAD_RE.test(t)) {
+      reply = "Pour les trajets hors de France, je vous mets en relation avec un conseiller Neotravel qui pourra vous accompagner. Vous pouvez le joindre directement ou nous laisser vos coordonnées pour un rappel.";
+      pushAgent(reply);
+      return;
+    }
     if (/(prix|tarif|co[uû]t|combien|budget|devis)/.test(t)) {
       reply = priceMsg();
     } else if (/(conseiller|humain|appel|rappel|t[ée]l[ée]phone|parler)/.test(t)) {
       reply = "Bien sûr. Un chargé d'affaires Neotravel peut vous rappeler sous 24 h ouvrées.";
     } else if (agentStage === 0) {
-      reply = `Parfait. Pour ${tripInfo.current.depart || "votre départ"} → ${tripInfo.current.destination || "votre destination"}, j'estime la distance et le temps de conduite. Avez-vous une date précise, ou êtes-vous flexible ?`;
+      reply = `Parfait. Pour ${tripInfo.current.depart || "votre départ"} → ${tripInfo.current.destination || "votre destination"}, j'estime la distance et le temps de conduite.`;
     } else if (agentStage === 1) {
       reply = priceMsg();
     } else if (agentStage === 2) {
       reply = "Très bien. Je peux vous envoyer ce devis par email et programmer un rappel. Souhaitez-vous que je le fasse ?";
+    } else if (agentStage === 3) {
+      const confirmed = /(oui|ok|d'accord|yes|volontiers|parfait|bien sûr)/i.test(t);
+      reply = confirmed
+        ? "Parfait ! Votre devis a été transmis. Notre équipe vous contactera sous 24 h ouvrées. N'hésitez pas si vous avez d'autres questions."
+        : "Très bien, aucun envoi de notre côté. N'hésitez pas à revenir si vous souhaitez un devis.";
     } else {
-      reply = "C'est noté, votre demande est transmise à notre équipe. Avez-vous une exigence particulière à ajouter ?";
+      reply = "Je reste à votre disposition si vous avez d'autres questions.";
     }
     setAgentStage(s => s + 1);
     pushAgent(reply);
@@ -720,27 +749,37 @@ function Landing({
 
   const sendChat = async () => {
     const text = chatInput.trim();
-    if (!text) return;
+    if (!text && !attachedFile) return;
 
-    addMsg("user", text);
+    const displayText = text || (attachedFile ? `📎 ${attachedFile.name}` : "");
+    addMsg("user", displayText);
     setChatInput("");
 
+    const file = attachedFile ?? undefined;
+    setAttachedFile(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+
     setAgentTyping(true);
-    const reply = await callAgent(text);
+    const { reply, slots } = await callAgent(text, file);
     setAgentTyping(false);
+
+    if (slots) tripInfo.current = { ...tripInfo.current, ...slots };
 
     if (reply) {
       addMsg("agent", reply);
-    } else {
+    } else if (text) {
       respond(text);
+    } else {
+      addMsg("agent", "Devis reçu. Notre équipe va l'analyser et revenir vers vous.");
     }
   };
 
   const onQuick = async (text: string) => {
     addMsg("user", text);
     setAgentTyping(true);
-    const reply = await callAgent(text);
+    const { reply, slots } = await callAgent(text);
     setAgentTyping(false);
+    if (slots) tripInfo.current = { ...tripInfo.current, ...slots };
     if (reply) {
       addMsg("agent", reply);
     } else {
@@ -845,7 +884,6 @@ function Landing({
                   {[
                     "Aller-retour",
                     "Quel est le tarif ?",
-                    "Je suis flexible sur les dates",
                     "Parler à un conseiller",
                   ].map(q => (
                     <button key={q} type="button" className="nt-quick" onClick={() => onQuick(q)}>{q}</button>
@@ -1211,7 +1249,7 @@ function Sidebar({ screen, setScreen, demandesCount }: { screen: Screen; setScre
           <strong>Agent Commercial</strong>
           <span>agent@neotravel.fr</span>
         </section>
-        <button type="button" className="sidebar-logout" aria-label="Se déconnecter" onClick={() => setScreen("landing")}>
+        <button type="button" className="sidebar-logout" aria-label="Se déconnecter" onClick={() => signOut({ callbackUrl: "/login" })}>
           <IcoLogout />
         </button>
       </div>
