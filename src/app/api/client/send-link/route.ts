@@ -10,7 +10,7 @@ export async function POST(req: NextRequest) {
   if (!email) return NextResponse.json({ error: "Email requis." }, { status: 400 });
 
   // Vérifie que le client existe dans Airtable
-  const url = `https://api.airtable.com/v0/${BASE}/${encodeURIComponent("Gestion des Clients")}?filterByFormula=${encodeURIComponent(`{Email}='${email}'`)}&maxRecords=1`;
+  const url = `https://api.airtable.com/v0/${BASE}/${encodeURIComponent("Clients")}?filterByFormula=${encodeURIComponent(`{Email}='${email}'`)}&maxRecords=1`;
   const res = await fetch(url, { headers: { Authorization: `Bearer ${TOKEN}` } });
   const data = await res.json();
   if (!data.records?.length) {

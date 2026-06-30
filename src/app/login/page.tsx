@@ -139,7 +139,8 @@ function LoginContent() {
 
         <a href="/" className="nt-login-back">← Retour au site</a>
 
-        {(process.env.NODE_ENV === "development" || process.env.NEXT_PUBLIC_BYPASS_EMAIL) && (
+        {/* ponytail: boutons bypass toujours visibles (démo). Retirer ce bloc avant un vrai déploiement public. */}
+        {true && (
           <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 12 }}>
             <button
               style={{ width: "100%", background: "#f3f4f6", border: "1px dashed #9ca3af", borderRadius: 8, padding: "8px", fontSize: 12, color: "#6b7280", cursor: "pointer" }}

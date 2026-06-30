@@ -1,6 +1,7 @@
 import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
+import { jwtVerify } from "jose";
 
 const AIRTABLE_BASE = process.env.AIRTABLE_BASE_ID!;
 const AIRTABLE_TOKEN = process.env.AIRTABLE_TOKEN!;
@@ -57,15 +58,12 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           return { id: "bypass-client", email: process.env.NEXT_PUBLIC_BYPASS_EMAIL ?? process.env.BYPASS_CLIENT_EMAIL ?? "client@test.fr", name: "Client Test", role: "client" };
         }
         try {
-          const payload = JSON.parse(
-            Buffer.from((credentials.token as string).split(".")[1], "base64url").toString()
-          );
-          if (payload.exp < Date.now() / 1000) return null;
+          const secret = new TextEncoder().encode(process.env.AUTH_SECRET!);
+          const { payload } = await jwtVerify(credentials.token as string, secret);
           if (payload.role !== "client") return null;
-          // Vérifie que l'email existe toujours en Airtable
-          const record = await airtableGet("Gestion des Clients", `{Email}='${payload.email}'`);
+          const record = await airtableGet("Clients", `{Email}='${payload.email}'`);
           if (!record) return null;
-          return { id: record.id, email: payload.email, name: payload.email, role: "client" };
+          return { id: record.id, email: payload.email as string, name: payload.email as string, role: "client" };
         } catch {
           return null;
         }
