@@ -569,6 +569,7 @@ function Landing({
   const [sessionId] = useState(() => crypto.randomUUID());
   const [attachedFile, setAttachedFile] = useState<File | null>(null);
   const [listening, setListening] = useState(false);
+  const [chatDone, setChatDone] = useState(false);
   const recognitionRef = useRef<{ stop: () => void } | null>(null);
   const formRef = useRef<HTMLDivElement>(null);
   const consentRef = useRef<HTMLDivElement>(null);
@@ -710,9 +711,29 @@ function Landing({
       reply = "Très bien. Je peux vous envoyer ce devis par email et programmer un rappel. Souhaitez-vous que je le fasse ?";
     } else if (agentStage === 3) {
       const confirmed = /(oui|ok|d'accord|yes|volontiers|parfait|bien sûr)/i.test(t);
-      reply = confirmed
-        ? "Parfait ! Votre devis a été transmis. Notre équipe vous contactera sous 24 h ouvrées. N'hésitez pas si vous avez d'autres questions."
-        : "Très bien, aucun envoi de notre côté. N'hésitez pas à revenir si vous souhaitez un devis.";
+      if (confirmed) {
+        reply = "Parfait ! Votre demande a été enregistrée et un récapitulatif vous a été envoyé par email. Notre équipe vous contactera sous 24 h ouvrées.";
+        const pax = parseInt(tripInfo.current.passagers ?? "", 10) || 30;
+        const { tarifMin, tarifMax } = estimateTarif(pax);
+        fetch("/api/chat/confirm", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            email: userEmail,
+            prenom: userFirstName,
+            depart: tripInfo.current.depart,
+            destination: tripInfo.current.destination,
+            passagers: pax,
+            date: tripInfo.current.date,
+            tarifMin,
+            tarifMax,
+          }),
+        });
+        setChatDone(true);
+      } else {
+        reply = "Très bien, aucun envoi de notre côté. N'hésitez pas à revenir si vous souhaitez un devis.";
+        setChatDone(true);
+      }
     } else {
       reply = "Je reste à votre disposition si vous avez d'autres questions.";
     }
@@ -846,7 +867,12 @@ function Landing({
                     </div>
                   )}
                 </div>
-                <div className="nt-chat-input">
+                {chatDone ? (
+                  <div style={{ textAlign: "center", padding: "16px 0", color: "#6b7280", fontSize: 14 }}>
+                    ✅ Conversation terminée — un email de confirmation a été envoyé à {userEmail}.
+                  </div>
+                ) : null}
+                <div className="nt-chat-input" style={chatDone ? { display: "none" } : undefined}>
                   <input
                     type="text"
                     value={chatInput}
@@ -880,15 +906,17 @@ function Landing({
                     <button type="button" onClick={() => { setAttachedFile(null); if (fileInputRef.current) fileInputRef.current.value = ""; }} aria-label="Retirer le fichier">×</button>
                   </div>
                 )}
-                <div className="nt-chat-quicks">
-                  {[
-                    "Aller-retour",
-                    "Quel est le tarif ?",
-                    "Parler à un conseiller",
-                  ].map(q => (
-                    <button key={q} type="button" className="nt-quick" onClick={() => onQuick(q)}>{q}</button>
-                  ))}
-                </div>
+                {!chatDone && (
+                  <div className="nt-chat-quicks">
+                    {[
+                      "Aller-retour",
+                      "Quel est le tarif ?",
+                      "Parler à un conseiller",
+                    ].map(q => (
+                      <button key={q} type="button" className="nt-quick" onClick={() => onQuick(q)}>{q}</button>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
 
