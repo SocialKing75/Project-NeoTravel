@@ -1,0 +1,152 @@
+{
+  "name": "NeoTravel – Devis PDF",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "devis",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "node-1-webhook",
+      "name": "Webhook Devis",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [
+        200,
+        300
+      ],
+      "webhookId": "neotravel-devis"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const item = $input.first().json;\n\n// Validation champs obligatoires\nif (!item.depart || !item.destination) {\n  throw new Error('Champs obligatoires manquants : depart, destination');\n}\n\n// Echappement HTML - protege contre injection dans PDF/email\nconst esc = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\"/g, '&quot;').replace(/\\'/g, '&#x27;');\n\n// Clamp passagers entre 1 et 250 (garde-fou tarif)\nconst pax = Math.min(Math.max(1, Number(item.passagers) || 30), 250);\nconst low = 1200 + pax * 14;\nconst high = Math.round(low * 1.32);\nconst fmt = (n) => n.toLocaleString('fr-FR');\nconst date = new Date().toLocaleDateString('fr-FR');\n\nconst html = `<!DOCTYPE html>\n<html lang=\"fr\">\n<head>\n<meta charset=\"UTF-8\">\n<style>\n* { box-sizing: border-box; margin: 0; padding: 0; }\nbody { font-family: Arial, Helvetica, sans-serif; color: #0E1C2B; padding: 48px; }\n.header { display: flex; justify-content: space-between; align-items: flex-start; padding-bottom: 24px; margin-bottom: 32px; border-bottom: 3px solid #C2E812; }\n.brand { font-size: 28px; font-weight: 800; }\n.brand em { color: #C2E812; font-style: normal; }\n.meta { text-align: right; font-size: 12px; color: #666; line-height: 1.8; }\n.meta strong { color: #0E1C2B; font-size: 14px; }\nh2 { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: #888; margin-bottom: 12px; padding-bottom: 6px; border-bottom: 1px solid #eee; }\n.section { margin-bottom: 28px; }\n.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 32px; }\n.field span { display: block; font-size: 10px; color: #999; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 2px; }\n.field strong { font-size: 13px; font-weight: 600; }\n.tarif { background: #0E1C2B; color: white; border-radius: 10px; padding: 28px; text-align: center; }\n.tarif-label { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; opacity: 0.6; margin-bottom: 8px; }\n.tarif-range { font-size: 32px; font-weight: 800; color: #C2E812; margin-bottom: 6px; }\n.tarif-sub { font-size: 13px; opacity: 0.7; }\n.tarif-note { font-size: 11px; opacity: 0.45; margin-top: 10px; }\n.msg { background: #f8f8f8; border-left: 3px solid #C2E812; padding: 12px 16px; font-size: 13px; line-height: 1.6; color: #444; }\n.footer { margin-top: 48px; padding-top: 20px; border-top: 1px solid #eee; font-size: 11px; color: #aaa; text-align: center; line-height: 2; }\n</style>\n</head>\n<body>\n<div class=\"header\">\n  <div class=\"brand\">Neo<em>travel</em></div>\n  <div class=\"meta\">\n    <strong>Devis n° ${esc(item.id) || 'NT-' + Date.now()}</strong><br>\n    Émis le ${date}<br>\n    contact@neotravel.fr · 09 80 40 04 84\n  </div>\n</div>\n<div class=\"section\">\n  <h2>Client</h2>\n  <div class=\"grid-2\">\n    <div class=\"field\"><span>Nom</span><strong>${esc(item.prospect)}</strong></div>\n    <div class=\"field\"><span>Email</span><strong>${esc(item.email)}</strong></div>\n    <div class=\"field\"><span>Téléphone</span><strong>${esc(item.tel) || '—'}</strong></div>\n  </div>\n</div>\n<div class=\"section\">\n  <h2>Trajet</h2>\n  <div class=\"grid-2\">\n    <div class=\"field\"><span>Départ</span><strong>${esc(item.depart)}</strong></div>\n    <div class=\"field\"><span>Destination</span><strong>${esc(item.destination)}</strong></div>\n    <div class=\"field\"><span>Date</span><strong>${esc(item.tripDate) || 'À confirmer'}</strong></div>\n    <div class=\"field\"><span>Passagers</span><strong>${item.passagers ? esc(item.passagers) + ' personnes' : '—'}</strong></div>\n    <div class=\"field\"><span>Véhicule</span><strong>${esc(item.vehicule) || 'À déterminer'}</strong></div>\n  </div>\n</div>\n${item.message ? '<div class=\"section\"><h2>Détails</h2><div class=\"msg\">' + esc(item.message) + '</div></div>' : ''}\n<div class=\"section\">\n  <h2>Tarif indicatif</h2>\n  <div class=\"tarif\">\n    <div class=\"tarif-label\">Estimation Neotravel</div>\n    <div class=\"tarif-range\">${fmt(low)} € – ${fmt(high)} €</div>\n    <div class=\"tarif-sub\">TTC · chauffeur et carburant inclus</div>\n    <div class=\"tarif-note\">Tarif indicatif — distance confirmée avant envoi du devis définitif</div>\n  </div>\n</div>\n<div class=\"footer\">\n  Neotravel · 09 80 40 04 84 · contact@neotravel.fr<br>\n  Ce devis est valable 30 jours à compter du ${date}.\n</div>\n</body>\n</html>`;\n\nconst buffer = Buffer.from(html, 'utf-8');\nconst binaryData = await this.helpers.prepareBinaryData(buffer, 'index.html', 'text/html');\n\nreturn [{ json: { ...item, tarifMin: low, tarifMax: high }, binary: { indexHtml: binaryData } }];"
+      },
+      "id": "node-2-code",
+      "name": "HTML Devis",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        420,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://localhost:3000/forms/chromium/convert/html",
+        "contentType": "multipart-form-data",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "parameterType": "formBinaryData",
+              "name": "files",
+              "inputDataFieldName": "indexHtml"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file",
+              "outputPropertyName": "pdf"
+            }
+          }
+        }
+      },
+      "id": "node-3-gotenberg",
+      "name": "PDF via Gotenberg",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        640,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "fromEmail": "contact@neotravel.fr",
+        "toEmail": "={{ $('HTML Devis').item.json.email }}",
+        "subject": "=Votre devis Neotravel – {{ $('HTML Devis').item.json.depart }} → {{ $('HTML Devis').item.json.destination }}",
+        "emailType": "html",
+        "message": "=<p>Bonjour {{ $('HTML Devis').item.json.prospect }},</p><p>Merci pour votre demande de transport de groupe.</p><p>Veuillez trouver en pièce jointe votre devis indicatif pour le trajet <strong>{{ $('HTML Devis').item.json.depart }} → {{ $('HTML Devis').item.json.destination }}</strong>.</p><p>Ce tarif est fourni à titre indicatif — un conseiller vous confirmera la distance exacte et vous enverra le devis définitif sous 24h.</p><p>Pour toute question, contactez-nous au <strong>09 80 40 04 84</strong> ou répondez directement à cet email.</p><p>Cordialement,<br><strong>L'équipe Neotravel</strong></p>",
+        "attachments": "pdf",
+        "options": {}
+      },
+      "id": "node-4-email",
+      "name": "Email Client",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        860,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={ \"ok\": true }",
+        "options": {}
+      },
+      "id": "node-5-respond",
+      "name": "Répondre",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1080,
+        300
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook Devis": {
+      "main": [
+        [
+          {
+            "node": "HTML Devis",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTML Devis": {
+      "main": [
+        [
+          {
+            "node": "PDF via Gotenberg",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "PDF via Gotenberg": {
+      "main": [
+        [
+          {
+            "node": "Email Client",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Email Client": {
+      "main": [
+        [
+          {
+            "node": "Répondre",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}
