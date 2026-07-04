@@ -1,0 +1,1764 @@
+{
+  "name": "My workflow 3",
+  "nodes": [
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "qwen3:14b",
+          "mode": "list",
+          "cachedResultName": "qwen3:14b"
+        },
+        "options": {
+          "baseURL": "http://localhost:11434/v1"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        -11392,
+        10320
+      ],
+      "id": "320aa433-e826-4286-a463-da0647333a1d",
+      "name": "Qwen3 14B1",
+      "credentials": {
+        "openAiApi": {
+          "id": "PLACEHOLDER_OLLAMA",
+          "name": "Ollama local"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "chat",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -11520,
+        10096
+      ],
+      "id": "ce0594bf-7985-4bd2-bcfa-f92f1c235467",
+      "name": "Webhook2",
+      "webhookId": "d878c905-6b95-4a05-aceb-6f010e229d46"
+    },
+    {
+      "parameters": {
+        "model": "mistral/mistral-medium-3.5",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatVercelAiGateway",
+      "typeVersion": 1,
+      "position": [
+        -11856,
+        10528
+      ],
+      "id": "a03ff94d-2a61-4b1e-9fc9-90e8d72cc672",
+      "name": "Vercel AI Gateway Chat Model1",
+      "credentials": {
+        "vercelAiGatewayApi": {
+          "id": "jj5Fgkc0YwdVCoI9",
+          "name": "Vercel AI Gateway account"
+        }
+      },
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const output = $input.first().json.output ?? '';\nlet cleaned = output.trimStart();\nlet safety = 0;\nwhile (cleaned.startsWith('[{') && safety++ < 5) {\n  const end = cleaned.indexOf('}]');\n  if (end === -1) break;\n  cleaned = cleaned.slice(end + 2).trimStart();\n}\nconst finalOutput = cleaned.trim() || output;\n\n// Extraire prix TTC depuis la réponse de l'agent\nconst pm = finalOutput.match(/(\\d[\\d\\s]{1,6}\\d)\\s*€\\s*TTC/i)\n  || finalOutput.match(/TTC[\\s:]*([\\d\\s]{3,8})/i);\nconst prix_ttc = pm ? parseInt(pm[1].replace(/\\s/g, '')) : null;\nconst has_devis = prix_ttc !== null && prix_ttc > 200;\n\nreturn [{ json: { output: finalOutput, prix_ttc, has_devis } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -10816,
+        10096
+      ],
+      "id": "c76422f2-88b2-4256-a0bf-10b9766598b9",
+      "name": "Nettoyer sortie1"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"reply\": $json.output } }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        -10608,
+        10096
+      ],
+      "id": "842c8631-d3e1-4cf6-9835-997d8bf9adc4",
+      "name": "Respond to Webhook1"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.body.message }}{{ $json.chatInput }}",
+        "options": {
+          "systemMessage": "=Tu es Alex, agent commercial de NeoTravel (location d'autocar avec chauffeur).\n\nObjectif : reunir 6 informations aupres du client, puis appeler l'outil calculerDevis pour lui donner un prix.\n\nInformations a reunir, dans cet ordre :\n1. ville de depart\n2. ville d'arrivee\n3. date de depart\n4. aller simple ou aller-retour\n5. nombre de passagers\n6. email\n\nDeroule :\n- S'il manque une information, pose UNE seule question, pour la premiere information manquante.\n- Des que tu connais les 6 informations, appelle IMMEDIATEMENT l'outil calculerDevis avec exactement :\n  { \"villeDepart\": \"...\", \"villeArrivee\": \"...\", \"dateDepart\": \"AAAA-MM-JJ\", \"allerRetour\": true ou false, \"passagers\": nombre }\n  Puis annonce au client le prix TTC renvoye par l'outil.\n\nRegles :\n- Ne calcule et n'estime JAMAIS un prix toi-meme. Seul l'outil calculerDevis peut donner un tarif.\n- Si le client indique plus de 85 passagers : dis que la demande sera traitee manuellement par un conseiller et demande un telephone ou un email.\n- Reste bref et poli. Une seule question a la fois. Confirme brievement les infos au fur et a mesure."
+        }
+      },
+      "id": "bef32f6e-b6d3-49ab-b90c-60a014831774",
+      "name": "NeoTravel Agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.7,
+      "position": [
+        -11264,
+        10096
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "search",
+        "base": {
+          "__rl": true,
+          "value": "appTP3CebBC8FfZYq",
+          "mode": "list",
+          "cachedResultName": "Neo Travel - Pricing",
+          "cachedResultUrl": "https://airtable.com/appTP3CebBC8FfZYq"
+        },
+        "table": {
+          "__rl": true,
+          "value": "tblBrwboc3qnskSGL",
+          "mode": "list",
+          "cachedResultName": "Relances",
+          "cachedResultUrl": "https://airtable.com/appTP3CebBC8FfZYq/tblBrwboc3qnskSGL"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.airtableTool",
+      "typeVersion": 2.2,
+      "position": [
+        -10768,
+        10384
+      ],
+      "id": "61631db7-4333-4acf-b773-d558816f0e03",
+      "name": "Search records in Airtable1",
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "9LwENMzPNXg33kg4",
+          "name": "Airtable Personal Access Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "={{ $json.body.sessionId }}",
+        "contextWindowLength": 10
+      },
+      "id": "09c48362-311d-4d7e-b54c-30822d4a10e2",
+      "name": "Mémoire Conversation2",
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.2,
+      "position": [
+        -11264,
+        10320
+      ]
+    },
+    {
+      "parameters": {
+        "name": "formater_reponse",
+        "description": "Formate le message de confirmation avec les vraies valeurs des slots",
+        "jsCode": "const rawInput = $input.first().json.input ?? '{}';\nlet _p = {};\ntry { _p = JSON.parse(rawInput); } catch { _p = {}; }\nconst slots = _p.slots ?? {};\nconst type = _p.type ?? 'confirmation';\n\nconst {\n  villeDepart = '?',\n  villeArrivee = '?',\n  dateDepart,\n  heureDepart,\n  passagers,\n  allerRetour\n} = slots;\n\n// Formater date lisible\nlet dateStr = '';\nif (dateDepart) {\n  const d = new Date(dateDepart);\n  dateStr = d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });\n}\n\nlet message = '';\n\nif (type === 'confirmation') {\n  const parts = [`Trajet noté : ${villeDepart} → ${villeArrivee}`];\n  if (dateStr) parts.push(`le ${dateStr}`);\n  if (heureDepart) parts.push(`à ${heureDepart}`);\n  if (passagers) parts.push(`pour ${passagers} passager${passagers > 1 ? 's' : ''}`);\n  if (allerRetour !== undefined) parts.push(allerRetour ? '(aller-retour)' : '(aller simple)');\n  message = parts.join(', ') + '.';\n\n} else if (type === 'accueil') {\n  message = `Bonjour ! Je suis l'agent NeoTravel. J'ai bien noté votre demande — laissez-moi quelques secondes pour analyser votre trajet.`;\n\n} else if (type === 'devis_pret') {\n  message = `Très bien, je prépare votre devis détaillé pour ${villeDepart} → ${villeArrivee}. Souhaitez-vous le recevoir par email, ou qu'un conseiller vous rappelle pour le valider ?`;\n}\n\nconst complete = !['?'].includes(villeDepart) && !['?'].includes(villeArrivee);\n\nreturn [{ json: { message, complete } }];"
+      },
+      "id": "d2e7e847-4635-410e-b29f-72c574b94203",
+      "name": "formater_reponse1",
+      "type": "@n8n/n8n-nodes-langchain.toolCode",
+      "typeVersion": 1.1,
+      "position": [
+        -10880,
+        10544
+      ]
+    },
+    {
+      "parameters": {
+        "name": "extraireInfos",
+        "description": "Extrait et valide les informations du trajet depuis la conversation",
+        "jsCode": "const rawInput = $input.first().json.input ?? '{}';\nlet _p = {};\ntry { _p = JSON.parse(rawInput); } catch { _p = {}; }\nconst txt = String(_p.message ?? '').toLowerCase();\nconst slots = _p.slots ?? {};\nconst req = ['villeDepart','villeArrivee','dateDepart','allerRetour','passagers','email'];\n\nif (!slots.dateDepart) {\n  const MOIS = {'janvier':1,'fevrier':2,'mars':3,'avril':4,'mai':5,'juin':6,'juillet':7,'aout':8,'septembre':9,'octobre':10,'novembre':11,'decembre':12};\n  const JMAX = [0,31,28,31,30,31,30,31,31,30,31,30,31];\n  const dtxt = txt.match(/(\\d{1,2})\\s+(janvier|f[ée]vrier|mars|avril|mai|juin|juillet|ao[uû]t|septembre|octobre|novembre|d[ée]cembre)(?:\\s+(\\d{4}))?/);\n  if (dtxt) {\n    const jour = parseInt(dtxt[1]);\n    const moisStr = dtxt[2].toLowerCase().replace(/[éè]/g,'e').replace(/û/,'u');\n    const moisNum = MOIS[moisStr];\n    const annee = dtxt[3] ? parseInt(dtxt[3]) : new Date().getFullYear();\n    if (moisNum) {\n      const biss = annee%4===0 && (annee%100!==0||annee%400===0);\n      const max = moisNum===2 && biss ? 29 : JMAX[moisNum];\n      if (jour < 1 || jour > max) {\n        const req2 = ['villeDepart','villeArrivee','dateDepart','allerRetour','passagers','email'];\n        return JSON.stringify({ hors_domaine:false, hors_france:false, debrayage:false, date_invalide:true, slots, missing:req2.filter(k=>slots[k]==null||slots[k]===undefined), complete:false });\n      }\n      slots.dateDepart = `${annee}-${String(moisNum).padStart(2,'0')}-${String(jour).padStart(2,'0')}`;\n    }\n  }\n}\n\nconst ABROAD = /\\b(espagne|spain|madrid|barcelone|italie|italy|rome|milan|allemagne|germany|berlin|munich|royaume.uni|uk|london|londres|belgique|belgium|bruxelles|suisse|switzerland|gen[eè]ve|zurich|portugal|lisbonne|porto|pays.bas|amsterdam|luxembourg|autriche|vienne|pologne|varsovie|budapest|maroc|casablanca|rabat|alg[eé]rie|alger|tunisie|tunis|s[eé]n[eé]gal|dakar|abidjan|cameroun|canada|[eé]tats.unis|usa|new.york|dubai|[eé]mirats|qatar|chine|japon|tokyo|inde|international|[eé]tranger)\\b/i;\nconst hors_france = ABROAD.test(slots.villeDepart || '') || ABROAD.test(slots.villeArrivee || '') || ABROAD.test(txt);\n\nconst missing = req.filter(k => slots[k] == null || slots[k] === undefined);\nreturn JSON.stringify({ hors_domaine:false, hors_france, debrayage:false, date_invalide:false, slots, missing, complete:missing.length===0 });"
+      },
+      "id": "22125f1f-4e8b-42b5-aaac-50cb37d11254",
+      "name": "extraireInfos1",
+      "type": "@n8n/n8n-nodes-langchain.toolCode",
+      "typeVersion": 1.1,
+      "position": [
+        -11184,
+        10544
+      ]
+    },
+    {
+      "parameters": {
+        "toolDescription": "Calcule le prix TTC d'un trajet en autocar. Utilise cet outil des que tu connais ville de depart, ville d'arrivee, date de depart, aller simple/retour et nombre de passagers.",
+        "method": "POST",
+        "url": "http://127.0.0.1:8000/calculer",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\n  \"ville_depart\": \"{villeDepart}\",\n  \"ville_arrivee\": \"{villeArrivee}\",\n  \"date_depart\": \"{dateDepart}\",\n  \"aller_retour\": {allerRetour},\n  \"passagers\": {passagers}\n}",
+        "options": {},
+        "placeholderDefinitions": {
+          "values": [
+            {
+              "name": "villeDepart",
+              "description": "ville de depart (ex: Paris)",
+              "type": "string"
+            },
+            {
+              "name": "villeArrivee",
+              "description": "ville d arrivee (ex: Lyon)",
+              "type": "string"
+            },
+            {
+              "name": "dateDepart",
+              "description": "date de depart au format AAAA-MM-JJ",
+              "type": "string"
+            },
+            {
+              "name": "allerRetour",
+              "description": "true si aller-retour, false si aller simple",
+              "type": "boolean"
+            },
+            {
+              "name": "passagers",
+              "description": "nombre de passagers",
+              "type": "number"
+            }
+          ]
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+      "typeVersion": 1.1,
+      "position": [
+        -11040,
+        10544
+      ],
+      "id": "6a6b79a6-b8bb-4f4b-850b-0100acd0186b",
+      "name": "calculerDevis1"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "devis-check-001",
+              "leftValue": "={{ $json.has_devis }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -10384,
+        10096
+      ],
+      "id": "f0ce4e0f-d596-4a70-92c6-ecc239c94504",
+      "name": "IF Devis Complet1"
+    },
+    {
+      "parameters": {
+        "jsCode": "const wb = $('Webhook2').first().json.body ?? {};\nconst sessionId = wb.sessionId ?? 'NT-' + Date.now();\nconst userMsg = wb.message ?? '';\nconst agentOut = $('Nettoyer sortie1').first().json.output ?? '';\nconst prix_ttc = $('Nettoyer sortie1').first().json.prix_ttc ?? 0;\nconst now = new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });\nconst refDevis = 'NT-' + Date.now().toString(36).toUpperCase().slice(-6);\n\nconst html = `<!DOCTYPE html>\n<html lang='fr'><head><meta charset='UTF-8'>\n<style>\nbody{font-family:Arial,sans-serif;color:#0E1C2B;margin:0;padding:40px}\n.hd{background:#0E1C2B;color:#fff;padding:28px 36px;border-radius:8px;margin-bottom:24px}\n.hd h1{margin:0;font-size:22px}.hd p{margin:4px 0 0;color:#C2E812;font-size:13px}\n.ref{font-size:12px;color:#888;margin-bottom:18px}\n.sec{background:#f8f9fa;border-radius:8px;padding:18px 22px;margin-bottom:16px}\n.sec h2{margin:0 0 10px;font-size:15px;border-bottom:2px solid #C2E812;padding-bottom:6px}\n.row{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #eee;font-size:13px}\n.row:last-child{border-bottom:none}.lbl{color:#666}.val{font-weight:600}\n.pbox{background:#0E1C2B;color:#fff;border-radius:8px;padding:24px;text-align:center;margin:18px 0}\n.amt{font-size:38px;font-weight:700;color:#C2E812}.sub{font-size:13px;color:#aaa;margin-top:4px}\n.ft{text-align:center;font-size:11px;color:#999;margin-top:24px;border-top:1px solid #eee;padding-top:14px}\n</style></head><body>\n<div class='hd'><h1>NeoTravel — Devis de transport de groupe</h1><p>Location d'autocar, minibus et bus privé avec chauffeur</p></div>\n<div class='ref'>Référence : ${refDevis} · Date : ${now}</div>\n<div class='sec'><h2>Détail de la demande</h2>\n<div class='row'><span class='lbl'>Demande client</span><span class='val'>${userMsg.slice(0,140)}</span></div>\n<div class='row'><span class='lbl'>Réponse agent</span><span class='val' style='font-size:12px;max-width:60%;text-align:right'>${agentOut.slice(0,280)}</span></div>\n</div>\n<div class='pbox'>\n  <div style='font-size:13px;margin-bottom:8px'>TARIF INDICATIF TTC</div>\n  <div class='amt'>${prix_ttc.toLocaleString('fr-FR')} €</div>\n  <div class='sub'>Chauffeur et carburant inclus · Hors péages</div>\n</div>\n<div class='sec'><h2>Conditions</h2>\n<div class='row'><span class='lbl'>TVA</span><span class='val'>10 %</span></div>\n<div class='row'><span class='lbl'>Validité</span><span class='val'>30 jours</span></div>\n<div class='row'><span class='lbl'>Acompte</span><span class='val'>30 % à la réservation</span></div>\n<div class='row'><span class='lbl'>Annulation gratuite</span><span class='val'>Jusqu'à J−15</span></div>\n</div>\n<div class='ft'>NeoTravel · 09 80 40 04 84 · contact@neotravel.fr<br>\nCe devis est indicatif — distance et tarif confirmés avant l'envoi du devis définitif.</div>\n</body></html>`;\n\n// PDF via Gotenberg (docker run -p 3001:3000 gotenberg/gotenberg:8)\nlet pdfBase64 = null;\nlet pdfOk = false;\ntry {\n  const form = new FormData();\n  form.append('files', new Blob([html], { type: 'text/html' }), 'index.html');\n  const pr = await fetch('http://localhost:3001/forms/chromium/convert/html', {\n    method: 'POST', body: form, signal: AbortSignal.timeout(15000)\n  });\n  if (pr.ok) {\n    pdfBase64 = Buffer.from(await pr.arrayBuffer()).toString('base64');\n    pdfOk = true;\n  }\n} catch (_) { /* Gotenberg non disponible */ }\n\nreturn [{ json: { html, refDevis, sessionId, userMsg, agentOut, prix_ttc, pdfBase64, pdfOk } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -10176,
+        10096
+      ],
+      "id": "be59426d-d6a7-41f1-a67d-73f79978d0c5",
+      "name": "Générer HTML Devis1"
+    },
+    {
+      "parameters": {
+        "operation": "create",
+        "base": {
+          "__rl": true,
+          "value": "appTP3CebBC8FfZYq",
+          "mode": "list",
+          "cachedResultName": "Neo Travel - Pricing",
+          "cachedResultUrl": "https://airtable.com/appTP3CebBC8FfZYq"
+        },
+        "table": {
+          "__rl": true,
+          "value": "Clients",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {
+          "typecast": true
+        }
+      },
+      "id": "c8219e7e-5c75-4704-ac62-77ce2905d8d1",
+      "name": "Sauvegarder Demande1",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.2,
+      "position": [
+        -9984,
+        10096
+      ],
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "9LwENMzPNXg33kg4",
+          "name": "Airtable Personal Access Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const d = $('Générer HTML Devis1').first().json;const ao = d.agentOut ?? '';const em = ao.match(/[a-zA-Z0-9._%+\\-]+@[a-zA-Z0-9.\\-]+\\.[a-zA-Z]{2,}/);const email = em ? em[0] : '';const ttc = d.prix_ttc || 0;return [{json: {...d, email, prix_ttc: ttc, prix_ht: Math.round(ttc/1.1)}}];"
+      },
+      "id": "88fc6a12-0dea-4fc9-bb62-fc0d218193fd",
+      "name": "Extraire Email1",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -9776,
+        10096
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "search",
+        "base": {
+          "__rl": true,
+          "value": "appTP3CebBC8FfZYq",
+          "mode": "id"
+        },
+        "table": {
+          "__rl": true,
+          "value": "Gestion des Clients",
+          "mode": "name"
+        },
+        "filterByFormula": "{Email}='{{ $json.email }}'",
+        "options": {}
+      },
+      "id": "7e2ee5b5-1641-4f16-8d50-905c73fab6ee",
+      "name": "Chercher Client Airtable1",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.1,
+      "position": [
+        -9568,
+        10096
+      ],
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "9LwENMzPNXg33kg4",
+          "name": "Airtable Personal Access Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ $json.id }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "5cc84536-4f45-44aa-add5-5ee64e565110",
+      "name": "IF Client Existant1",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        -9344,
+        10096
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const ex=$('Extraire Email1').first().json;return[{json:{...ex,clientRecordId:$input.first().json.id}}];"
+      },
+      "id": "1c4912f2-9888-4315-a88d-9e43e4b03a24",
+      "name": "Client ID trouve1",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -9120,
+        9888
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "create",
+        "base": {
+          "__rl": true,
+          "value": "appTP3CebBC8FfZYq",
+          "mode": "id"
+        },
+        "table": {
+          "__rl": true,
+          "value": "Gestion des Clients",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Email": "={{ $json.email }}"
+          },
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {
+          "typecast": true
+        }
+      },
+      "id": "a37da033-cb7c-439c-85cb-ee1a489415e9",
+      "name": "Creer Client Airtable1",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.1,
+      "position": [
+        -9120,
+        10288
+      ],
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "9LwENMzPNXg33kg4",
+          "name": "Airtable Personal Access Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const ex=$('Extraire Email1').first().json;return[{json:{...ex,clientRecordId:$input.first().json.id}}];"
+      },
+      "id": "8c1e399d-d215-404f-9d2d-02355f42af06",
+      "name": "Client ID cree1",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -8896,
+        10288
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "create",
+        "base": {
+          "__rl": true,
+          "value": "appTP3CebBC8FfZYq",
+          "mode": "id"
+        },
+        "table": {
+          "__rl": true,
+          "value": "Devis",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Ref_Devis": "={{ $json.refDevis }}",
+            "Clients": "={{ [$json.clientRecordId] }}",
+            "Montant_HT": "={{ $json.prix_ht }}",
+            "Montant_TTC": "={{ $json.prix_ttc }}",
+            "Statut": "devis_calcule",
+            "Date_Creation": "={{ $now.toISO() }}"
+          },
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {
+          "typecast": true
+        }
+      },
+      "id": "b7b8b4c8-3bc0-4e3e-a627-643eac593bd4",
+      "name": "Creer Devis Airtable1",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.1,
+      "position": [
+        -8688,
+        10096
+      ],
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "9LwENMzPNXg33kg4",
+          "name": "Airtable Personal Access Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "create",
+        "base": {
+          "__rl": true,
+          "value": "appTP3CebBC8FfZYq",
+          "mode": "id"
+        },
+        "table": {
+          "__rl": true,
+          "value": "Relances",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Devis": "={{ [$input.first().json.id] }}",
+            "id_devis": "={{ $json.refDevis }}",
+            "Statut": "devis_envoyé"
+          },
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {
+          "typecast": true
+        }
+      },
+      "id": "4b80b90e-efc9-424b-b8fc-81fd30c039b4",
+      "name": "Creer Relance Airtable1",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.1,
+      "position": [
+        -8464,
+        10096
+      ],
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "9LwENMzPNXg33kg4",
+          "name": "Airtable Personal Access Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 2
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        -13232,
+        9856
+      ],
+      "id": "de99df96-1bf8-4fc7-9dc6-0c58be210762",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "operation": "search",
+        "base": {
+          "__rl": true,
+          "value": "appTP3CebBC8FfZYq",
+          "mode": "list",
+          "cachedResultName": "Neo Travel - Pricing",
+          "cachedResultUrl": "https://airtable.com/appTP3CebBC8FfZYq"
+        },
+        "table": {
+          "__rl": true,
+          "value": "tblBrwboc3qnskSGL",
+          "mode": "list",
+          "cachedResultName": "Relances",
+          "cachedResultUrl": "https://airtable.com/appTP3CebBC8FfZYq/tblBrwboc3qnskSGL"
+        },
+        "filterByFormula": "=OR(\n  {statut} = 'devis_envoyé',\n  {statut} = 'relancé_1',\n  {statut} = 'relancé_2'\n)",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.2,
+      "position": [
+        -13024,
+        9856
+      ],
+      "id": "c6eef795-68e3-443c-8a04-2f93319a1ecb",
+      "name": "Search records",
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "9LwENMzPNXg33kg4",
+          "name": "Airtable Personal Access Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "7edf18a5-a6da-4d7c-be64-815190552455",
+              "leftValue": "={{ $json.fields.urgent }}",
+              "rightValue": "=true",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            },
+            {
+              "id": "b92489d7-7a64-4970-8873-0e73786386f0",
+              "leftValue": "={{ $json.fields.date_envoi_devis }}",
+              "rightValue": "={{ $now.minus(4, 'minutes').toISO() }}",
+              "operator": {
+                "type": "dateTime",
+                "operation": "before"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -12816,
+        9856
+      ],
+      "id": "56e096b8-d7fc-4661-ab77-695ed5a8fa82",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "from": "onboarding@resend.dev",
+        "to": "=neotravelproject@gmail.com",
+        "subject": "=Votre devis NeoTravel #{{ $('Search records').item.json.fields.id_devis }} — Relance",
+        "emailFormat": "text",
+        "text": "Bonjour,\n\nNous revenons vers vous concernant votre demande de devis NeoTravel.\n\nSans réponse de votre part, nous nous permettons de vous relancer. \nN'hésitez pas à nous contacter pour toute question.\n\nCordialement,\nL'équipe NeoTravel",
+        "additionalOptions": {}
+      },
+      "type": "n8n-nodes-resend.resend",
+      "typeVersion": 1,
+      "position": [
+        -12592,
+        9840
+      ],
+      "id": "4817820f-ff04-4737-8782-e38c829d02bf",
+      "name": "Send a new email",
+      "webhookId": "bb0220a9-93dc-4303-a0f4-f8ae2b7a8876",
+      "credentials": {
+        "resendApi": {
+          "id": "aVxCE3DFyoBmtSc8",
+          "name": "Resend account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "base": {
+          "__rl": true,
+          "value": "appTP3CebBC8FfZYq",
+          "mode": "list",
+          "cachedResultName": "Neo Travel - Pricing",
+          "cachedResultUrl": "https://airtable.com/appTP3CebBC8FfZYq"
+        },
+        "table": {
+          "__rl": true,
+          "value": "tblBrwboc3qnskSGL",
+          "mode": "list",
+          "cachedResultName": "Relances",
+          "cachedResultUrl": "https://airtable.com/appTP3CebBC8FfZYq/tblBrwboc3qnskSGL"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Statut": "relancé_1",
+            "date_relance_1": "={{ $now.toISO() }}\n",
+            "id_devis": "={{ $('Search records').item.json.fields.id_devis }}"
+          },
+          "matchingColumns": [
+            "id_devis"
+          ],
+          "schema": [
+            {
+              "id": "id",
+              "displayName": "id",
+              "required": false,
+              "defaultMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": true,
+              "removed": true
+            },
+            {
+              "id": "id_devis",
+              "displayName": "id_devis",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": true,
+              "removed": false
+            },
+            {
+              "id": "date_envoi_devis",
+              "displayName": "date_envoi_devis",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "dateTime",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "date_relance_1",
+              "displayName": "date_relance_1",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "dateTime",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "date_relance_2",
+              "displayName": "date_relance_2",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "dateTime",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "Statut",
+              "displayName": "Statut",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "options",
+              "options": [
+                {
+                  "name": "nouveau",
+                  "value": "nouveau"
+                },
+                {
+                  "name": "demande_incomplète",
+                  "value": "demande_incomplète"
+                },
+                {
+                  "name": "demande_qualifiée",
+                  "value": "demande_qualifiée"
+                },
+                {
+                  "name": "devis_envoyé",
+                  "value": "devis_envoyé"
+                },
+                {
+                  "name": "relancé_1",
+                  "value": "relancé_1"
+                },
+                {
+                  "name": "relancé_2",
+                  "value": "relancé_2"
+                },
+                {
+                  "name": "clôturé",
+                  "value": "clôturé"
+                },
+                {
+                  "name": "accepté",
+                  "value": "accepté"
+                },
+                {
+                  "name": "réfusé",
+                  "value": "réfusé"
+                },
+                {
+                  "name": "cas_complexe_transmis",
+                  "value": "cas_complexe_transmis"
+                }
+              ],
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "urgent",
+              "displayName": "urgent",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "boolean",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "Email_prospect",
+              "displayName": "Email_prospect",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {
+          "typecast": true
+        }
+      },
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.2,
+      "position": [
+        -12384,
+        9840
+      ],
+      "id": "58a2d31f-d22a-4ca3-acc5-4b59c2864ab1",
+      "name": "Update record",
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "9LwENMzPNXg33kg4",
+          "name": "Airtable Personal Access Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 2
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        -13232,
+        10032
+      ],
+      "id": "682a76a8-669a-43bf-81bc-cb876e1eebe3",
+      "name": "Schedule Trigger1"
+    },
+    {
+      "parameters": {
+        "operation": "search",
+        "base": {
+          "__rl": true,
+          "value": "appTP3CebBC8FfZYq",
+          "mode": "list",
+          "cachedResultName": "Neo Travel - Pricing",
+          "cachedResultUrl": "https://airtable.com/appTP3CebBC8FfZYq"
+        },
+        "table": {
+          "__rl": true,
+          "value": "tblBrwboc3qnskSGL",
+          "mode": "list",
+          "cachedResultName": "Relances",
+          "cachedResultUrl": "https://airtable.com/appTP3CebBC8FfZYq/tblBrwboc3qnskSGL"
+        },
+        "filterByFormula": "={Statut} = 'relancé_1'",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.2,
+      "position": [
+        -13024,
+        10032
+      ],
+      "id": "415a1a4f-db81-40c8-a6d8-5da45bef7ed0",
+      "name": "Search records1",
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "9LwENMzPNXg33kg4",
+          "name": "Airtable Personal Access Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "b92489d7-7a64-4970-8873-0e73786386f0",
+              "leftValue": "={{ $json.fields.date_relance_1 }}",
+              "rightValue": "={{ $now.minus(2, 'minutes').toISO() }}",
+              "operator": {
+                "type": "dateTime",
+                "operation": "after"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -12816,
+        10032
+      ],
+      "id": "ebad8cb4-ad26-4ae3-845f-e51b1e3fa30f",
+      "name": "If1"
+    },
+    {
+      "parameters": {
+        "from": "onboarding@resend.dev",
+        "to": "=neotravelproject@gmail.com",
+        "subject": "=Votre devis NeoTravel #{{ $('Search records1').item.json.fields.id_devis }} — Dernière relance",
+        "emailFormat": "text",
+        "text": "Bonjour,\n\nNous nous permettons de vous contacter une dernière fois \nconcernant votre demande de devis NeoTravel.\n\nSans retour de votre part, nous clôturerons votre dossier \nprochainement. Si votre projet est toujours d'actualité, \nil suffit de nous répondre ! Nous serons ravis de vous \naccompagner.\n\nCordialement,\nL'équipe NeoTravel",
+        "additionalOptions": {}
+      },
+      "type": "n8n-nodes-resend.resend",
+      "typeVersion": 1,
+      "position": [
+        -12560,
+        10016
+      ],
+      "id": "8af8630a-0a0c-48c9-88de-9b458a341020",
+      "name": "Send a new email1",
+      "webhookId": "b0bbd3bd-cc85-4a5f-a647-ebcffc982746",
+      "credentials": {
+        "resendApi": {
+          "id": "aVxCE3DFyoBmtSc8",
+          "name": "Resend account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "base": {
+          "__rl": true,
+          "value": "appTP3CebBC8FfZYq",
+          "mode": "list",
+          "cachedResultName": "Neo Travel - Pricing",
+          "cachedResultUrl": "https://airtable.com/appTP3CebBC8FfZYq"
+        },
+        "table": {
+          "__rl": true,
+          "value": "tblBrwboc3qnskSGL",
+          "mode": "list",
+          "cachedResultName": "Relances",
+          "cachedResultUrl": "https://airtable.com/appTP3CebBC8FfZYq/tblBrwboc3qnskSGL"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Statut": "relancé_2",
+            "id_devis": "={{ $('Search records1').item.json.fields.id_devis }}",
+            "date_relance_2": "={{ $now.toISO() }}"
+          },
+          "matchingColumns": [
+            "id_devis"
+          ],
+          "schema": [
+            {
+              "id": "id",
+              "displayName": "id",
+              "required": false,
+              "defaultMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": true,
+              "removed": true
+            },
+            {
+              "id": "id_devis",
+              "displayName": "id_devis",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": true,
+              "removed": false
+            },
+            {
+              "id": "date_envoi_devis",
+              "displayName": "date_envoi_devis",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "dateTime",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "date_relance_1",
+              "displayName": "date_relance_1",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "dateTime",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "date_relance_2",
+              "displayName": "date_relance_2",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "dateTime",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Statut",
+              "displayName": "Statut",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "options",
+              "options": [
+                {
+                  "name": "nouveau",
+                  "value": "nouveau"
+                },
+                {
+                  "name": "demande_incomplète",
+                  "value": "demande_incomplète"
+                },
+                {
+                  "name": "demande_qualifiée",
+                  "value": "demande_qualifiée"
+                },
+                {
+                  "name": "devis_envoyé",
+                  "value": "devis_envoyé"
+                },
+                {
+                  "name": "relancé_1",
+                  "value": "relancé_1"
+                },
+                {
+                  "name": "relancé_2",
+                  "value": "relancé_2"
+                },
+                {
+                  "name": "clôturé",
+                  "value": "clôturé"
+                },
+                {
+                  "name": "accepté",
+                  "value": "accepté"
+                },
+                {
+                  "name": "réfusé",
+                  "value": "réfusé"
+                },
+                {
+                  "name": "cas_complexe_transmis",
+                  "value": "cas_complexe_transmis"
+                }
+              ],
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "urgent",
+              "displayName": "urgent",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "boolean",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "Email_prospect",
+              "displayName": "Email_prospect",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {
+          "typecast": true
+        }
+      },
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.2,
+      "position": [
+        -12352,
+        10016
+      ],
+      "id": "86ea84bf-3fee-4457-9862-1ee995951e44",
+      "name": "Update record1",
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "9LwENMzPNXg33kg4",
+          "name": "Airtable Personal Access Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 2
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        -13232,
+        10224
+      ],
+      "id": "dddf6105-c32d-46ed-adc5-7549ff47bca3",
+      "name": "Schedule Trigger2"
+    },
+    {
+      "parameters": {
+        "operation": "search",
+        "base": {
+          "__rl": true,
+          "value": "appTP3CebBC8FfZYq",
+          "mode": "list",
+          "cachedResultName": "Neo Travel - Pricing",
+          "cachedResultUrl": "https://airtable.com/appTP3CebBC8FfZYq"
+        },
+        "table": {
+          "__rl": true,
+          "value": "tblBrwboc3qnskSGL",
+          "mode": "list",
+          "cachedResultName": "Relances",
+          "cachedResultUrl": "https://airtable.com/appTP3CebBC8FfZYq/tblBrwboc3qnskSGL"
+        },
+        "filterByFormula": "={Statut} = 'relancé_2'",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.2,
+      "position": [
+        -13024,
+        10224
+      ],
+      "id": "6e194c8d-d3a1-4377-b328-5ac973d2a3c3",
+      "name": "Search records2",
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "9LwENMzPNXg33kg4",
+          "name": "Airtable Personal Access Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "b92489d7-7a64-4970-8873-0e73786386f0",
+              "leftValue": "={{ $json.fields.date_relance_2 }}",
+              "rightValue": "={{ $now.minus(2, 'minutes').toISO() }}",
+              "operator": {
+                "type": "dateTime",
+                "operation": "after"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": "={{ true }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -12816,
+        10224
+      ],
+      "id": "fb2466bd-99e7-4706-aa66-549991c651b1",
+      "name": "If2"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "base": {
+          "__rl": true,
+          "value": "appTP3CebBC8FfZYq",
+          "mode": "list",
+          "cachedResultName": "Neo Travel - Pricing",
+          "cachedResultUrl": "https://airtable.com/appTP3CebBC8FfZYq"
+        },
+        "table": {
+          "__rl": true,
+          "value": "tblBrwboc3qnskSGL",
+          "mode": "list",
+          "cachedResultName": "Relances",
+          "cachedResultUrl": "https://airtable.com/appTP3CebBC8FfZYq/tblBrwboc3qnskSGL"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Statut": "clôturé",
+            "id_devis": "={{ $('Search records2').item.json.fields.id_devis }}",
+            "date_relance_2": "={{ $now.toISO() }}"
+          },
+          "matchingColumns": [
+            "id_devis"
+          ],
+          "schema": [
+            {
+              "id": "id",
+              "displayName": "id",
+              "required": false,
+              "defaultMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": true,
+              "removed": true
+            },
+            {
+              "id": "id_devis",
+              "displayName": "id_devis",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": true,
+              "removed": false
+            },
+            {
+              "id": "date_envoi_devis",
+              "displayName": "date_envoi_devis",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "dateTime",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "date_relance_1",
+              "displayName": "date_relance_1",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "dateTime",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "date_relance_2",
+              "displayName": "date_relance_2",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "dateTime",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Statut",
+              "displayName": "Statut",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "options",
+              "options": [
+                {
+                  "name": "nouveau",
+                  "value": "nouveau"
+                },
+                {
+                  "name": "demande_incomplète",
+                  "value": "demande_incomplète"
+                },
+                {
+                  "name": "demande_qualifiée",
+                  "value": "demande_qualifiée"
+                },
+                {
+                  "name": "devis_envoyé",
+                  "value": "devis_envoyé"
+                },
+                {
+                  "name": "relancé_1",
+                  "value": "relancé_1"
+                },
+                {
+                  "name": "relancé_2",
+                  "value": "relancé_2"
+                },
+                {
+                  "name": "clôturé",
+                  "value": "clôturé"
+                },
+                {
+                  "name": "accepté",
+                  "value": "accepté"
+                },
+                {
+                  "name": "réfusé",
+                  "value": "réfusé"
+                },
+                {
+                  "name": "cas_complexe_transmis",
+                  "value": "cas_complexe_transmis"
+                }
+              ],
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "urgent",
+              "displayName": "urgent",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "boolean",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "Email_prospect",
+              "displayName": "Email_prospect",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {
+          "typecast": true
+        }
+      },
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.2,
+      "position": [
+        -12624,
+        10208
+      ],
+      "id": "5a4f633a-64e5-4bed-a294-5d9e0ec06dd4",
+      "name": "Update record2",
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "9LwENMzPNXg33kg4",
+          "name": "Airtable Personal Access Token account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Qwen3 14B1": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "NeoTravel Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook2": {
+      "main": [
+        [
+          {
+            "node": "NeoTravel Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Nettoyer sortie1": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Respond to Webhook1": {
+      "main": [
+        [
+          {
+            "node": "IF Devis Complet1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NeoTravel Agent": {
+      "main": [
+        [
+          {
+            "node": "Nettoyer sortie1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mémoire Conversation2": {
+      "ai_memory": [
+        [
+          {
+            "node": "NeoTravel Agent",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "calculerDevis1": {
+      "ai_tool": [
+        [
+          {
+            "node": "NeoTravel Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF Devis Complet1": {
+      "main": [
+        [
+          {
+            "node": "Générer HTML Devis1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Générer HTML Devis1": {
+      "main": [
+        [
+          {
+            "node": "Sauvegarder Demande1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sauvegarder Demande1": {
+      "main": [
+        [
+          {
+            "node": "Extraire Email1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extraire Email1": {
+      "main": [
+        [
+          {
+            "node": "Chercher Client Airtable1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Chercher Client Airtable1": {
+      "main": [
+        [
+          {
+            "node": "IF Client Existant1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF Client Existant1": {
+      "main": [
+        [
+          {
+            "node": "Client ID trouve1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Creer Client Airtable1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Client ID trouve1": {
+      "main": [
+        [
+          {
+            "node": "Creer Devis Airtable1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Creer Client Airtable1": {
+      "main": [
+        [
+          {
+            "node": "Client ID cree1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Client ID cree1": {
+      "main": [
+        [
+          {
+            "node": "Creer Devis Airtable1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Creer Devis Airtable1": {
+      "main": [
+        [
+          {
+            "node": "Creer Relance Airtable1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Search records",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Search records": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Send a new email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send a new email": {
+      "main": [
+        [
+          {
+            "node": "Update record",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Schedule Trigger1": {
+      "main": [
+        [
+          {
+            "node": "Search records1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Search records1": {
+      "main": [
+        [
+          {
+            "node": "If1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If1": {
+      "main": [
+        [
+          {
+            "node": "Send a new email1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send a new email1": {
+      "main": [
+        [
+          {
+            "node": "Update record1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Schedule Trigger2": {
+      "main": [
+        [
+          {
+            "node": "Search records2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Search records2": {
+      "main": [
+        [
+          {
+            "node": "If2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If2": {
+      "main": [
+        [
+          {
+            "node": "Update record2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false,
+    "timeSavedMode": "fixed",
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "versionId": "c304b09f-2b67-454c-a8e4-04f2211b518e",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "077a2d1109d604f7736c8d6baa227bb7b0791aa3a5a1b5ef6a33e4fad5a114be"
+  },
+  "nodeGroups": [],
+  "id": "hGRZ0PPsOr1NqnEy",
+  "tags": []
+}
